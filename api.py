@@ -1,13 +1,25 @@
+# copyright: (c) 2012 by Hansel Dunlop.
+# license: ISC, see LICENSE for more details.
+#
+# kubrick.api
+#
+# This module implements the Kubrick api.
+#
+
+
+from boto.ec2.connection import EC2Connection
+from boto.ec2 import get_region
+from fabric.api import env, put, run
+from fabric.context_managers import cd
 import time
-import boto
-import config_objects
+from urlparse import urljoin
 
-
+import aws_config as config
 
 class Server(object):
 
     def __init__(self, provider_config):
-        self.conn = boto.ec2.connection.EC2Connection(
+        self.conn = EC2Connection(
             provider_config.AWS_ACCESS_KEY_ID,
             provider_config.AWS_SECRET_ACCESS_KEY
         )
@@ -30,7 +42,7 @@ class Server(object):
 class AWSServer(Server):
 
     def __init__(self, key_id, secret_key, identifier):
-        self.conn = boto.ec2.connection.EC2Connection(key_id, secret_key)
+        self.conn = EC2Connection(key_id, secret_key)
         self.save_config(server_id=identifier)
         self.save_config(AWS_ACCESS_KEY_ID=key_id)
         self.save_config(AWS_SECRET_ACCESS_KEY=secret_key)
@@ -43,35 +55,18 @@ class AWSConfig(object):
         self.AWS_SECRET_ACCESS_KEY = secret_key
 
 
-from boto.ec2.connection import EC2Connection
-from boto.ec2 import get_region
-from fabric.api import put, run
-from fabric.context_managers import cd
-
-from secrets import ACCESS_KEY_ID, SECRET_ACCESS_KEY
-
-BASE_AMI = 'ami-f7eb3e9e'
-BASE_AMI = 'ami-9b49e7f2' # us1-east, Ubuntu 12.04, ebs backed
-DEFAULT_INSTANCE_TYPE = 't1.micro'
-DEFAULT_ZONE = 'us-east-1b'
-SECURITY_GROUPS = ['default']
-KEY_NAME = 'aws_automated'
-KEY_FILE_PATH '~/.ssh/'
-USERNAME = 'ubuntu'
-
-
-def get_region_from_name(zone_name=DEFAULT_ZONE):
+def get_region_from_name(zone_name=config.DEFAULT_ZONE):
     return get_region(
         zone_name,
-        aws_access_key_id=ACCESS_KEY_ID,
-        aws_secret_access_key=SECRET_ACCESS_KEY,
+        aws_access_key_id=config.AWS_ACCESS_KEY_ID,
+        aws_secret_access_key=config.AWS_SECRET_ACCESS_KEY,
     )
 
 
 def create_aws_connection():
     return EC2Connection(
-        ACCESS_KEY_ID,
-        SECRET_ACCESS_KEY,
+        config.AWS_ACCESS_KEY_ID,
+        config.AWS_SECRET_ACCESS_KEY,
         region=get_region_from_name()
     )
 
@@ -112,8 +107,8 @@ def redis_setup():
 
 
 class Server(object):
-    ami = BASE_AMI
-    size = DEFAULT_INSTANCE_TYPE
+    ami = config.BASE_AMI
+    size = config.DEFAULT_INSTANCE_TYPE
     install_command_map = {
         'apt': 'sudo apt-get install',
         'pip': 'pip install --upgrade',
@@ -170,10 +165,10 @@ def start_server_from_ami(ami, machine_name):
     """Starts a VM on AWS using a given AMI and name"""
     conn = create_aws_connection()
     reservation = conn.run_instances(
-        ami, security_groups=SECURITY_GROUPS,
-        key_name=KEY_NAME,
-        instance_type=DEFAULT_INSTANCE_TYPE,
-        placement=DEFAULT_ZONE,
+        ami, security_groups=config.SECURITY_GROUPS,
+        key_name=config.KEY_NAME,
+        instance_type=config.DEFAULT_INSTANCE_TYPE,
+        placement=config.DEFAULT_ZONE,
     )
 
     instance = reservation.instances[0]
@@ -191,8 +186,7 @@ def start_server_from_ami(ami, machine_name):
 
 def configure_instance(script, instance):
     """Runs script on a given instance"""
-    from fabric.api import env
-    env.hosts = [USERNAME + '@' + instance.public_dns_name]
-    env.key_filename = [urlparse.urljoin(KEY_FILE_PATH, KEY_NAME)]
+    env.hosts = [config.USERNAME + '@' + instance.public_dns_name]
+    env.key_filename = [urljoin(config.KEY_FILE_PATH, config.KEY_NAME)]
     put(script, '/root/')
     run('/root/%s' % (script,))
