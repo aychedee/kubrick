@@ -1,23 +1,19 @@
 # copyright: (c) 2012 by Hansel Dunlop.
 # license: ISC, see LICENSE for more details.
 #
-# kubrick.api
-#
-# This module implements the Kubrick api.
-#
-
 
 # AWS config settings, secrets.py is never committed as it contains all
 # the sensitive account information
 
-from secrets import AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY
+from secrets import AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, KEY_FILENAME
 
-BASE_AMI = 'ami-9b49e7f2' # us1-east, Ubuntu 12.04, ebs backed
+BASE_AMI = 'ami-013f9768' # us1-east, micro, Ubuntu 12.04, ebs backed
 DEFAULT_INSTANCE_TYPE = 't1.micro'
 DEFAULT_ZONE = 'us-east-1b'
 SECURITY_GROUPS = ['default']
-KEY_NAME = 'aws_automated'
+KEY_NAME = 'hanseldunlop'
 KEY_FILE_PATH = '~/.ssh/'
+OPERATING_SYSTEM = 'Ubuntu'
 USERNAME = 'ubuntu'
 
 

@@ -10,49 +10,90 @@
 from boto.ec2.connection import EC2Connection
 from boto.ec2 import get_region
 from fabric.api import env, put, run
-from fabric.context_managers import cd
+from fabric.state import connections
+import sys
 import time
 from urlparse import urljoin
 
-import aws_config as config
 
 class Server(object):
-
-    def __init__(self, provider_config):
-        self.conn = EC2Connection(
-            provider_config.AWS_ACCESS_KEY_ID,
-            provider_config.AWS_SECRET_ACCESS_KEY
-        )
-
-    def disconnect(self):
-        self.conn.close()
-
-    def connect(self, identifier):
-        pass
-
-
-    def create(self):
-        pass
-
-
-    def destroy(self):
-        pass
+    install_command_map = {
+        'apt': 'sudo apt-get install',
+        'pip': 'pip install --upgrade',
+        'easy_install': 'easy_install --upgrade',
+    }
 
 
 class AWSServer(Server):
 
-    def __init__(self, key_id, secret_key, identifier):
-        self.conn = EC2Connection(key_id, secret_key)
-        self.save_config(server_id=identifier)
-        self.save_config(AWS_ACCESS_KEY_ID=key_id)
-        self.save_config(AWS_SECRET_ACCESS_KEY=secret_key)
+    def __init__(self, config, identifier):
+        self.key_id = config.AWS_ACCESS_KEY_ID
+        self.secret_key = config.AWS_SECRET_ACCESS_KEY
+        self.ami_id = config.BASE_AMI
+        self.config = config
+        self.key_filename = config.KEY_FILE
+        self.identifier = identifier
+        self.conn = EC2Connection(self.key_id, self.secret_key)
+        self.instance = None
+        self.root_account = config.USERNAME
+        self.operating_system = config.OPERATING_SYSTEM
+        if self.operating_system == 'Ubuntu':
+            self.sudo_required = True
+        else:
+            self.sudo_required = False
 
 
-class AWSConfig(object):
+    def run(self, command):
+        if not self.instance:
+            raise Exception('No machine attached to this server instance')
+        env.host_string = self.root_account + '@' + self.instance.public_dns_name
+        env.disable_known_hosts = True
+        env.user = self.config.USERNAME
+        env.connection_attempts = 6
+        env.key_filename = self.key_filename
+        if self.sudo_required:
+            command = 'sudo ' + command
+        run(command)
 
-    def __init__(self, key_id, secret_key, zone):
-        self.AWS_ACCESS_KEY_ID = key_id
-        self.AWS_SECRET_ACCESS_KEY = secret_key
+
+    def put(self, src, dest):
+        env.host_string = self.root_account + '@' + self.instance.public_dns_name
+        env.disable_known_hosts = True
+        env.user = self.config.USERNAME
+        env.connection_attempts = 6
+        env.key_filename = '/home/hansel/.ssh/hanseldunlop.pem'
+        if self.sudo_required:
+            put(src, dest, use_sudo=True)
+            return
+        put(src, dest)
+
+
+    def start_server(self):
+        self.instance = start_server_from_ami(self)
+
+
+    def destroy(self):
+        print 'Destroying AWS server', self.aws_instance
+        self.aws_instance.terminate()
+
+
+    def reboot(self):
+        self.run('reboot')
+        time.sleep(30)
+        print "Reconnecting",
+        sys.stdout.flush()
+        for retry in range(12):
+            try:
+                print ".",
+                sys.stdout.flush()
+                env.host_string = self.root_account + '@' + self.instance.public_dns_name
+                connections.connect(env.host_string)
+                break
+            except:
+                print "-",
+                sys.stdout.flush()
+                time.sleep(10)
+        print
 
 
 def get_region_from_name(zone_name=config.DEFAULT_ZONE):
@@ -77,98 +118,15 @@ def get_instance(instance_id):
     return reservations.instances[0]
 
 
-def django_admin_setup():
-    #ln -s /usr/local/lib/python2.7/dist-packages/django/contrib/admin/static/admin thenpsx.com/static/admin
-    pass
-
-def postgresql_setup():
-    # edit pga_gb.conf
-    # edit pga_hba.conf
-    # edit postgres.conf
-    # create tables
-    # create users
-    # sudo -u postgres createuser -P npsx-dbadmin
-    # sudo -u postgres createdb -O npsx-dbadmin npsx
-    pass
-
-
-def pip_install():
-    # django
-    # redis
-    pass
-
-def apt_get_install():
-    #redis
-    pass
-
-def redis_setup():
-    # edit redis.conf
-    pass
-
-
-class Server(object):
-    ami = config.BASE_AMI
-    size = config.DEFAULT_INSTANCE_TYPE
-    install_command_map = {
-        'apt': 'sudo apt-get install',
-        'pip': 'pip install --upgrade',
-        'easy_install': 'easy_install --upgrade',
-    }
-
-    def start(self):
-        pass
-
-
-    def configure(self):
-        pass
-
-
-    def install_packages(self):
-        for package in self.package_list:
-            run('%s %s' % (self.install_command_map[package[0]], package[1]))
-
-
-    def terminate(self):
-        pass
-
-
-class ApplicationServer(Server):
-
-    package_list = [
-        ('apt', 'apache2'),
-        ('apt', 'squid3'),
-    ]
-
-    def configure(self):
-        run('sudo apt-get update; sudo apt-get upgrade')
-        self.install_packages()
-        # copy sites-available and symlink them
-        with cd('/etc/apache2/sites-available'):
-            put(
-                'app-server/etc/apache2/sites-available/www.aychedee.com',
-                'www.aychedee.com'
-            )
-
-        # setup squid
-        # create users for squid
-
-
-class DatabaseServer(Server):
-
-    package_list = [
-        ('apt', 'mysql-server'),
-    ]
-
-
-
-def start_server_from_ami(ami, machine_name):
+def start_server_from_ami(server):
     """Starts a VM on AWS using a given AMI and name"""
-    conn = create_aws_connection()
-    reservation = conn.run_instances(
-        ami, security_groups=config.SECURITY_GROUPS,
-        key_name=config.KEY_NAME,
-        instance_type=config.DEFAULT_INSTANCE_TYPE,
-        placement=config.DEFAULT_ZONE,
+    if not server.conn:
+        server.conn = create_aws_connection()
+    reservation = server.conn.run_instances(
+        server.ami_id, security_groups=server.config.SECURITY_GROUPS,
+        key_name=server.config.KEY_NAME,
+        instance_type=server.config.DEFAULT_INSTANCE_TYPE,
+        placement=server.config.DEFAULT_ZONE,
     )
 
     instance = reservation.instances[0]
@@ -179,14 +137,6 @@ def start_server_from_ami(ami, machine_name):
         time.sleep(2)
         instance.update()
     print
-    conn.create_tags([instance.id], {'Name': machine_name})
+    server.conn.create_tags([instance.id], {'Name': server.identifier})
     return instance
 
-
-
-def configure_instance(script, instance):
-    """Runs script on a given instance"""
-    env.hosts = [config.USERNAME + '@' + instance.public_dns_name]
-    env.key_filename = [urljoin(config.KEY_FILE_PATH, config.KEY_NAME)]
-    put(script, '/root/')
-    run('/root/%s' % (script,))
