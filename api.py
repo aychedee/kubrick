@@ -9,12 +9,14 @@
 
 from boto.ec2.connection import EC2Connection
 from boto.ec2 import get_region
+from boto.s3.connection import S3Connection
+from boto.s3.key import Key
 from fabric.api import env, put, run
 from fabric.state import connections
 import sys
 import time
-from urlparse import urljoin
 
+import config
 
 class Server(object):
     install_command_map = {
@@ -31,7 +33,7 @@ class AWSServer(Server):
         self.secret_key = config.AWS_SECRET_ACCESS_KEY
         self.ami_id = config.BASE_AMI
         self.config = config
-        self.key_filename = config.KEY_FILE
+        self.key_filename = config.KEY_FILENAME
         self.identifier = identifier
         self.conn = EC2Connection(self.key_id, self.secret_key)
         self.instance = None
@@ -110,6 +112,28 @@ def create_aws_connection():
         config.AWS_SECRET_ACCESS_KEY,
         region=get_region_from_name()
     )
+
+
+def create_storage_connection():
+    return S3Connection(
+        config.AWS_ACCESS_KEY_ID,
+        config.AWS_SECRET_ACCESS_KEY,
+    )
+
+
+def put_file_into_bucket_with_key(path, bucketname, key):
+    conn = create_storage_connection()
+    buckets = conn.get_all_buckets()
+    bucket = None
+    for b in buckets:
+        if b.name == bucketname:
+            bucket = b
+    if not bucket:
+        raise Exception('Bucket with name ' + bucketname + ' not found')
+    k = Key(bucket)
+    k.key = key
+    k.set_contents_from_filename(path)
+    print path, 'has been saved in', bucket.name, 'with key:', key
 
 
 def get_instance(instance_id):

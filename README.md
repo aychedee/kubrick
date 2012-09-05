@@ -1,4 +1,4 @@
 kubrick
 =======
 
-Wrapper around boto for deploying servers 
+A director for AWS instances. 
