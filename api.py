@@ -6,12 +6,14 @@
 # This module implements the Kubrick api.
 #
 
+import os
 
 from boto.ec2.connection import EC2Connection
 from boto.ec2 import get_region
 from boto.s3.connection import S3Connection
 from boto.s3.key import Key
 from fabric.api import env, put, run
+from fabric.contrib.files import append
 from fabric.state import connections
 import sys
 import time
@@ -58,6 +60,20 @@ class AWSServer(Server):
         run(command)
 
 
+    def append(self, filename, text):
+        if not self.instance:
+            raise Exception('No machine attached to this server instance')
+        env.host_string = self.root_account + '@' + self.instance.public_dns_name
+        env.disable_known_hosts = True
+        env.user = self.config.USERNAME
+        env.connection_attempts = 6
+        env.key_filename = self.key_filename
+        if self.sudo_required:
+            append(filename, text, use_sudo=True)
+        else:
+            append(filename, text)
+
+
     def put(self, src, dest):
         env.host_string = self.root_account + '@' + self.instance.public_dns_name
         env.disable_known_hosts = True
@@ -65,9 +81,9 @@ class AWSServer(Server):
         env.connection_attempts = 6
         env.key_filename = '/home/hansel/.ssh/hanseldunlop.pem'
         if self.sudo_required:
-            put(src, dest, use_sudo=True)
+            put(src, dest, use_sudo=True, mirror_local_mode=True)
             return
-        put(src, dest)
+        put(src, dest, mirror_local_mode=True)
 
 
     def start_server(self):
@@ -75,8 +91,11 @@ class AWSServer(Server):
 
 
     def destroy(self):
-        print 'Destroying AWS server', self.aws_instance
-        self.aws_instance.terminate()
+        if self.instance:
+            print 'Destroying AWS server', self.instance
+            self.instance.terminate()
+        else:
+            print 'No instance on this server object'
 
 
     def reboot(self):
@@ -96,6 +115,95 @@ class AWSServer(Server):
                 sys.stdout.flush()
                 time.sleep(10)
         print
+
+
+class UbuntuMixin(object):
+    '''A mixin for Ubuntu based servers'''
+
+    apt_updated = False
+    apt_command = 'apt-get -qq -y'
+
+    def make_swap(self, size):
+        swap_location = '/var/swap'
+        self.run('dd if=/dev/zero of=%s bs=1M count=%d' % (swap_location, size,))
+        self.run('mkswap ' + swap_location)
+        self.run('swapon ' + swap_location)
+        self.append(
+            '/etc/fstab', '%s swap swap defaults 0 0' % (swap_location,)
+        )
+
+
+    def purge_apt_packages(self):
+        self.update_apt_if_necessary()
+        for package in self.APT_PURGES:
+            self.run(self.apt_command + ' --purge remove ' + package)
+
+
+    def update_apt_if_necessary(self):
+        if not self.apt_updated:
+            self.run(self.apt_command + ' update')
+            self.apt_updated = True
+
+
+    def upgrade_installed_packages(self):
+        self.update_apt_if_necessary()
+        self.run(self.apt_command + ' upgrade')
+        self.apt_updated = False
+
+
+    def install_apt_packages(self):
+        self.update_apt_if_necessary()
+        for package in self.APT_INSTALLS:
+            self.run(self.apt_command + ' install ' + package)
+
+
+    def install_python_modules(self):
+        for package in self.PIP_INSTALLS:
+            self.run('pip install %s' % (package,))
+
+
+    def configure_locales(self):
+        # prevents certain warning messages
+        self.run('locale-gen en_US en_US.UTF-8 en_GB.UTF-8')
+        self.run('dpkg-reconfigure locales')
+        self.run('mkdir -p /etc/ssl/intermediate_and_root_certs/')
+
+
+    def add_non_root_user(self, user, uid, gid, groups):
+        groups_arg = ','.join(groups)
+
+        self.run('groupadd --gid %d %s' % (gid, user))
+        self.run(
+            'useradd -m -s /bin/bash --uid %d --gid %d -G %s %s' % (
+                uid, gid, groups_arg, user
+            )
+        )
+
+
+    def put_static_config_files(self):
+        # recursively put all the files in the server_config dir
+        config_files = []
+        for dirname, dirs, files in os.walk(self.CONFIG_LOCATION):
+            for path in files:
+                full_path = os.path.join(dirname, path)
+                config_files.append(
+                    (full_path, full_path.replace(self.CONFIG_LOCATION, ''))
+                )
+
+        for src, dest in config_files:
+            self.run('mkdir -p ' + os.path.dirname(dest))
+            self.put(src, dest)
+
+
+    def setup_cron(self):
+        self.run('chmod 600 /etc/crontab')
+        self.run('chgrp root /etc/crontab')
+        self.run('chown root /etc/crontab')
+
+
+    def set_hostname(self, hostname):
+        self.run('hostname %s' % (hostname,))
+
 
 
 def get_region_from_name(zone_name=config.DEFAULT_ZONE):
@@ -158,6 +266,7 @@ def start_server_from_ami(server):
     print 'Waiting for instance to come up...'
     while instance.state != 'running':
         print '.',
+        sys.stdout.flush()
         time.sleep(2)
         instance.update()
     print
