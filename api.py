@@ -263,6 +263,8 @@ def start_server_from_ami(server):
     instance = reservation.instances[0]
 
     print 'Waiting for instance to come up...'
+    # Give the instance a chance to exist
+    time.sleep(1.5)
     while instance.state != 'running':
         print '.',
         sys.stdout.flush()
