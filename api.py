@@ -153,8 +153,7 @@ class UbuntuMixin(object):
 
     def install_apt_packages(self):
         self.update_apt_if_necessary()
-        for package in self.APT_INSTALLS:
-            self.run(self.apt_command + ' install ' + package)
+        self.run(self.apt_command + ' install ' + ' '.join(self.APT_INSTALLS))
 
 
     def install_python_modules(self):
