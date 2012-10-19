@@ -47,13 +47,14 @@ class AWSServer(Server):
             self.sudo_required = False
 
 
-    def run(self, command):
+    def run(self, command, warn_only=False):
         if not self.instance:
             raise Exception('No machine attached to this server instance')
         env.host_string = self.root_account + '@' + self.instance.public_dns_name
         env.disable_known_hosts = True
         env.user = self.config.USERNAME
         env.connection_attempts = 6
+        env.warn_only = warn_only
         env.key_filename = self.key_filename
         if self.sudo_required:
             command = 'sudo ' + command
