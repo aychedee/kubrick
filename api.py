@@ -158,6 +158,7 @@ class UbuntuMixin(object):
 
 
     def install_python_modules(self):
+        self.run('easy_install -U distribute')
         for package in self.PIP_INSTALLS:
             self.run('pip install %s' % (package,))
 
