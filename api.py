@@ -170,13 +170,13 @@ class UbuntuMixin(object):
         self.run('mkdir -p /etc/ssl/intermediate_and_root_certs/')
 
 
-    def add_non_root_user(self, user, uid, gid, groups):
+    def add_non_root_user(self, user, uid, gid, groups, shell='/bin/bash'):
         groups_arg = ','.join(groups)
 
         self.run('groupadd --gid %d %s' % (gid, user))
         self.run(
-            'useradd -m -s /bin/bash --uid %d --gid %d -G %s %s' % (
-                uid, gid, groups_arg, user
+            'useradd -m -s %s --uid %d --gid %d -G %s %s' % (
+                shell, uid, gid, groups_arg, user
             )
         )
 
