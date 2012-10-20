@@ -80,7 +80,7 @@ class AWSServer(Server):
         env.disable_known_hosts = True
         env.user = self.config.USERNAME
         env.connection_attempts = 6
-        env.key_filename = '/home/hansel/.ssh/hanseldunlop.pem'
+        env.key_filename = self.key_filename
         if self.sudo_required:
             put(src, dest, use_sudo=True, mirror_local_mode=True)
             return
