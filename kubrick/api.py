@@ -47,10 +47,15 @@ class AWSServer(Server):
             self.sudo_required = False
 
 
+    @property
+    def host_string(self):
+        return self.root_account + '@' + self.instance.public_dns_name
+
+
     def run(self, command, warn_only=False):
         if not self.instance:
             raise Exception('No machine attached to this server instance')
-        env.host_string = self.root_account + '@' + self.instance.public_dns_name
+        env.host_string = self.host_string
         env.disable_known_hosts = True
         env.user = self.config.USERNAME
         env.connection_attempts = 6
@@ -64,7 +69,7 @@ class AWSServer(Server):
     def append(self, filename, text):
         if not self.instance:
             raise Exception('No machine attached to this server instance')
-        env.host_string = self.root_account + '@' + self.instance.public_dns_name
+        env.host_string = self.host_string
         env.disable_known_hosts = True
         env.user = self.config.USERNAME
         env.connection_attempts = 6
@@ -76,7 +81,7 @@ class AWSServer(Server):
 
 
     def put(self, src, dest):
-        env.host_string = self.root_account + '@' + self.instance.public_dns_name
+        env.host_string = self.host_string
         env.disable_known_hosts = True
         env.user = self.config.USERNAME
         env.connection_attempts = 6
@@ -104,17 +109,17 @@ class AWSServer(Server):
         time.sleep(30)
         print "Reconnecting",
         sys.stdout.flush()
-        for retry in range(12):
+        for retry in range(60):
             try:
                 print ".",
                 sys.stdout.flush()
-                env.host_string = self.root_account + '@' + self.instance.public_dns_name
+                env.host_string = self.host_string
                 connections.connect(env.host_string)
                 break
             except:
                 print "-",
                 sys.stdout.flush()
-                time.sleep(10)
+                time.sleep(3)
         print
 
 
