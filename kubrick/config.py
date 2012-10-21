@@ -5,7 +5,17 @@
 # AWS config settings, secrets.py is never committed as it contains all
 # the sensitive account information
 
-from secrets import AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, KEY_FILENAME
+try:
+    from secrets import (
+        AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY,
+        KEY_FILENAME
+    )
+except ImportError:
+    print '''
+        You need to edit the secrets.py file in the the kubrick directory
+        for this package to work.
+    '''
+    raise
 
 BASE_AMI = 'ami-013f9768' # us1-east, micro, Ubuntu 12.04, ebs backed
 DEFAULT_INSTANCE_TYPE = 't1.micro'
