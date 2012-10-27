@@ -10,5 +10,10 @@ setup(
     author='Hansel Dunlop',
     author_email='hansel@interpretthis.org',
     url='https://github.com/aychedee/kubrick',
-    packages=['kubrick']
+    packages=['kubrick'],
+    requires=[
+        'boto',
+        'fabric',
+    ]
+
 )

@@ -2,7 +2,7 @@
 import unittest
 from mock import call, Mock, patch
 
-import kubrick
+from .context import kubrick
 
 
 @patch('kubrick.api.start_server_from_ami')
