@@ -175,13 +175,13 @@ class UbuntuMixin(object):
         self.run('mkdir -p /etc/ssl/intermediate_and_root_certs/')
 
 
-    def add_non_root_user(self, user, uid, gid, groups, shell='/bin/bash'):
+    def add_non_root_user(self, user, uid, gid, groups, shell='/bin/bash', base_dir='/home'):
         groups_arg = ','.join(groups)
 
         self.run('groupadd --gid %d %s' % (gid, user))
         self.run(
-            'useradd -m -s %s --uid %d --gid %d -G %s %s' % (
-                shell, uid, gid, groups_arg, user
+            'useradd -m -b %s -s %s --uid %d --gid %d -G %s %s' % (
+                base_dir, shell, uid, gid, groups_arg, user
             )
         )
 
