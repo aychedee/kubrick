@@ -142,18 +142,20 @@ class UbuntuMixin(object):
     def purge_apt_packages(self):
         self.update_apt_if_necessary()
         for package in self.APT_PURGES:
-            self.run(self.apt_command + ' --purge remove ' + package)
+            self.run(
+                self.apt_command + ' --purge remove ' + package, warn_only=True
+            )
 
 
     def update_apt_if_necessary(self):
         if not self.apt_updated:
-            self.run(self.apt_command + ' update')
+            self.run(self.apt_command + ' update', warn_only=True)
             self.apt_updated = True
 
 
     def upgrade_installed_packages(self):
         self.update_apt_if_necessary()
-        self.run(self.apt_command + ' upgrade')
+        self.run(self.apt_command + ' upgrade', warn_only=True)
         self.apt_updated = False
 
 
