@@ -17,7 +17,7 @@ except ImportError:
     '''
     raise
 
-BASE_AMI = 'ami-013f9768' # us1-east, micro, Ubuntu 12.04, ebs backed
+BASE_AMI = 'ami-7539b41c' # us1-east, amd64, Ubuntu 12.10, ebs backed
 DEFAULT_INSTANCE_TYPE = 't1.micro'
 DEFAULT_ZONE = 'us-east-1b'
 SECURITY_GROUPS = ['default']
