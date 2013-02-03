@@ -46,11 +46,9 @@ class AWSServer(Server):
         else:
             self.sudo_required = False
 
-
     @property
     def host_string(self):
         return self.root_account + '@' + self.instance.public_dns_name
-
 
     def run(self, command, warn_only=False):
         if not self.instance:
@@ -65,7 +63,6 @@ class AWSServer(Server):
             command = 'sudo ' + command
         run(command)
 
-
     def append(self, filename, text):
         if not self.instance:
             raise Exception('No machine attached to this server instance')
@@ -79,7 +76,6 @@ class AWSServer(Server):
         else:
             append(filename, text)
 
-
     def put(self, src, dest):
         env.host_string = self.host_string
         env.disable_known_hosts = True
@@ -91,10 +87,8 @@ class AWSServer(Server):
             return
         put(src, dest, mirror_local_mode=True)
 
-
     def start_server(self):
         self.instance = start_server_from_ami(self)
-
 
     def destroy(self):
         if self.instance:
@@ -102,7 +96,6 @@ class AWSServer(Server):
             self.instance.terminate()
         else:
             print 'No instance on this server object'
-
 
     def reboot(self):
         self.run('reboot')
@@ -138,6 +131,8 @@ class UbuntuMixin(object):
             '/etc/fstab', '%s swap swap defaults 0 0' % (swap_location,)
         )
 
+    def disable_disk_check(self):
+        self.run('tune2fs -c 9999 /dev/xvda1')
 
     def purge_apt_packages(self):
         self.update_apt_if_necessary()
@@ -146,36 +141,30 @@ class UbuntuMixin(object):
                 self.apt_command + ' --purge remove ' + package, warn_only=True
             )
 
-
     def update_apt_if_necessary(self):
         if not self.apt_updated:
             self.run(self.apt_command + ' update', warn_only=True)
             self.apt_updated = True
-
 
     def upgrade_installed_packages(self):
         self.update_apt_if_necessary()
         self.run(self.apt_command + ' upgrade', warn_only=True)
         self.apt_updated = False
 
-
     def install_apt_packages(self):
         self.update_apt_if_necessary()
         self.run(self.apt_command + ' install ' + ' '.join(self.APT_INSTALLS))
-
 
     def install_python_modules(self):
         self.run('easy_install -U distribute')
         for package in self.PIP_INSTALLS:
             self.run('pip install %s' % (package,))
 
-
     def configure_locales(self):
         # prevents certain warning messages
         self.run('locale-gen en_US en_US.UTF-8 en_GB.UTF-8')
         self.run('dpkg-reconfigure locales')
         self.run('mkdir -p /etc/ssl/intermediate_and_root_certs/')
-
 
     def add_non_root_user(self, user, uid, gid, groups, shell='/bin/bash', base_dir='/home'):
         groups_arg = ','.join(groups)
@@ -186,7 +175,6 @@ class UbuntuMixin(object):
                 base_dir, shell, uid, gid, groups_arg, user
             )
         )
-
 
     def put_static_config_files(self):
         # recursively put all the files in the server_config dir
@@ -202,16 +190,13 @@ class UbuntuMixin(object):
             self.run('mkdir -p ' + os.path.dirname(dest))
             self.put(src, dest)
 
-
     def setup_cron(self):
         self.run('chmod 600 /etc/crontab')
         self.run('chgrp root /etc/crontab')
         self.run('chown root /etc/crontab')
 
-
     def set_hostname(self, hostname):
         self.run('hostname %s' % (hostname,))
-
 
 
 def get_region_from_name(zone_name=config.DEFAULT_ZONE):
@@ -221,7 +206,6 @@ def get_region_from_name(zone_name=config.DEFAULT_ZONE):
         aws_secret_access_key=config.AWS_SECRET_ACCESS_KEY,
     )
 
-
 def create_aws_connection():
     return EC2Connection(
         config.AWS_ACCESS_KEY_ID,
@@ -229,13 +213,11 @@ def create_aws_connection():
         region=get_region_from_name()
     )
 
-
 def create_storage_connection():
     return S3Connection(
         config.AWS_ACCESS_KEY_ID,
         config.AWS_SECRET_ACCESS_KEY,
     )
-
 
 def put_file_into_bucket_with_key(path, bucketname, key):
     conn = create_storage_connection()
@@ -251,12 +233,10 @@ def put_file_into_bucket_with_key(path, bucketname, key):
     k.set_contents_from_filename(path)
     print path, 'has been saved in', bucket.name, 'with key:', key
 
-
 def get_instance(instance_id):
     conn = create_aws_connection()
     reservations = conn.get_all_instances([instance_id])[0]
     return reservations.instances[0]
-
 
 def start_server_from_ami(server):
     """Starts a VM on AWS using a given AMI and name"""
@@ -282,4 +262,3 @@ def start_server_from_ami(server):
     print
     server.conn.create_tags([instance.id], {'Name': server.identifier})
     return instance
-
