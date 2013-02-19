@@ -146,6 +146,9 @@ class UbuntuMixin(object):
             self.run(self.apt_command + ' update', warn_only=True)
             self.apt_updated = True
 
+    def uncomment_all_apt_repositories(self):
+        self.run("sed -i.bak 's/^# deb/deb/g' /etc/apt/sources.list")
+
     def upgrade_installed_packages(self):
         self.update_apt_if_necessary()
         self.run(self.apt_command + ' upgrade', warn_only=True)
