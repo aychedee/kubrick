@@ -46,42 +46,39 @@ class AWSServer(Server):
         else:
             self.sudo_required = False
 
+    def aws_settings(self, func):
+        def wrapper(self, *args, **kwargs):
+            if not self.instance:
+                raise Exception('No machine attached to this server instance')
+            env.host_string = self.host_string
+            env.disable_known_hosts = True
+            env.user = self.config.USERNAME
+            env.connection_attempts = 6
+            env.warn_only = kwargs.get('warn_only', False)
+            env.key_filename = self.key_filename
+            func(self, *args, **kwargs)
+
+        return wrapper
+
     @property
     def host_string(self):
         return self.root_account + '@' + self.instance.public_dns_name
 
+    @aws_settings
     def run(self, command, warn_only=False):
-        if not self.instance:
-            raise Exception('No machine attached to this server instance')
-        env.host_string = self.host_string
-        env.disable_known_hosts = True
-        env.user = self.config.USERNAME
-        env.connection_attempts = 6
-        env.warn_only = warn_only
-        env.key_filename = self.key_filename
         if self.sudo_required:
             command = 'sudo ' + command
         run(command)
 
+    @aws_settings
     def append(self, filename, text):
-        if not self.instance:
-            raise Exception('No machine attached to this server instance')
-        env.host_string = self.host_string
-        env.disable_known_hosts = True
-        env.user = self.config.USERNAME
-        env.connection_attempts = 6
-        env.key_filename = self.key_filename
         if self.sudo_required:
             append(filename, text, use_sudo=True)
         else:
             append(filename, text)
 
+    @aws_settings
     def put(self, src, dest):
-        env.host_string = self.host_string
-        env.disable_known_hosts = True
-        env.user = self.config.USERNAME
-        env.connection_attempts = 6
-        env.key_filename = self.key_filename
         if self.sudo_required:
             put(src, dest, use_sudo=True, mirror_local_mode=True)
             return
