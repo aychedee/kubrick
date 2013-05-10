@@ -146,6 +146,9 @@ class UbuntuMixin(object):
     def uncomment_all_apt_repositories(self):
         self.run("sed -i.bak 's/^# deb/deb/g' /etc/apt/sources.list")
 
+    def prevent_overwrite_of_apt_sources_on_reboot(self):
+        self.append('/etc/cloud/cloud.cfg', 'apt_preserve_sources_list: true')
+
     def upgrade_installed_packages(self):
         self.update_apt_if_necessary()
         self.run(self.apt_command + ' upgrade', warn_only=True)
